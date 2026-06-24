@@ -1,0 +1,2 @@
+anthropic>=0.40          # SDK officiel Claude (Phase C)
+python-dotenv>=1.0       # chargement du .env
