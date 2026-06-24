@@ -123,12 +123,13 @@ Le POC est en **lecture seule**. Pour valider toute la chaîne (filtrage + class
 
 **Création d'une facture** (rappel) : Comptabilité → Clients → Factures → **Nouveau** → choisir le client, ajouter une ligne, définir la **date d'échéance**, puis **Confirmer** (passe en `posted`). Pour une facture « payée », utiliser **Enregistrer un paiement** ; pour « partiellement payée », enregistrer un paiement d'un montant inférieur au total.
 
-> Pour la démo Phase 1 (1-2 semaines), la **création manuelle via l'UI suffit**. Pour rendre la démo **reproductible**, ces données pourront être scriptées plus tard via un stub `docker/fixtures/create_invoices.py` (optionnel en Phase A, utile en Phase B) :
+> **Recommandé — seed automatique.** Plutôt que la saisie manuelle, le script `docker/fixtures/create_invoices.py` crée les **2 clients + 6 factures** contrôlées (échéances échelonnées **J+8 / J+20 / J+35** calculées par rapport au jour courant), ce qui rend la démo **reproductible** :
 >
 > ```bash
-> # (Phase B — a venir)
-> python docker/fixtures/create_invoices.py --env .env
+> python docker/fixtures/create_invoices.py     # lit .env ; voir §6 pour le venv
 > ```
+>
+> Prérequis : base recréée **sans** « Load demonstration data » (cf. §2) pour éviter le bruit, et `.env` renseigné. Le seed **écrit** dans Odoo (outil de setup) — l'agent, lui, reste strictement en lecture seule.
 
 ---
 
@@ -159,14 +160,40 @@ docker compose -f docker/docker-compose.yml down -v
 
 ## 6. Lancement du POC
 
-> 🚧 **Phase B (à venir).** L'agent Python n'est pas encore implémenté.
->
-> Une fois développé, le lancement ressemblera à :
->
-> ```bash
-> python -m venv .venv && source .venv/bin/activate
-> pip install -r requirements.txt
-> python -m src.main
-> ```
->
-> L'agent lira `.env`, se connectera à Odoo en XML-RPC, récupérera les factures impayées échues, les classera (niveaux 1/2/3) et affichera les messages de relance générés par Claude. Cette section sera complétée à la fin de la Phase B.
+### Installation de l'agent (Python)
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt          # + requirements-dev.txt pour lancer les tests
+cp .env.example .env                      # puis renseigner ANTHROPIC_API_KEY
+```
+
+> **WSL2 / Debian — `python3 -m venv` échoue (`ensurepip is not available`) ?**
+> Installer le paquet : `sudo apt install python3-venv`, puis recréer le venv.
+> Sans accès `sudo` : `python3 -m venv --without-pip .venv` puis bootstrap de pip
+> (`curl -sS https://bootstrap.pypa.io/get-pip.py | .venv/bin/python`).
+
+### Exécution
+
+```bash
+# Cycle complet : fetch Odoo -> classification -> génération Claude -> affichage
+python -m src.main
+
+# Classification seule, sans appel à Claude (utile tant que le compte API n'a pas de crédits)
+python -m src.main --dry-run
+
+# Tracebacks complets en cas d'erreur
+python -m src.main --debug
+```
+
+L'agent lit `.env`, se connecte à Odoo en **XML-RPC (lecture seule)**, récupère les factures impayées échues, les classe par niveau (1/2/3 selon J+7 / J+15 / J+30) et affiche les messages de relance générés par Claude. **Aucun envoi réel, aucune écriture dans Odoo.**
+
+> **💳 Crédits API requis.** La génération réelle appelle l'API Anthropic, facturée à l'usage — **distincte de l'abonnement Claude Pro** (claude.ai). Créditer le compte sur `console.anthropic.com` → **Plans & Billing** (quelques dollars suffisent ; une relance ≈ quelques centimes). Sans crédits, utiliser `--dry-run`.
+
+### Tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest -q
+```
