@@ -1,0 +1,2 @@
+-r requirements.txt
+pytest>=8.0              # tests unitaires (relance_policy, formatage prompt)
