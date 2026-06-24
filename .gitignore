@@ -1,3 +1,24 @@
 # Infra IA — Claude Code
 # Le contexte est regenere a la demande via scripts/generate-ai-context.sh
 .claude/skills/project-context.md
+
+# Secrets / variables d'environnement
+.env
+.env.*
+!.env.example
+
+# Environnements virtuels Python
+.venv/
+venv/
+
+# Bytecode / cache Python
+__pycache__/
+*.pyc
+
+# Docker / donnees locales
+docker-compose.override.yml
+*.local.yml
+data/
+*.db
+*.sqlite
+*.sqlite3
