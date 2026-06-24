@@ -1,0 +1,59 @@
+# Stack locale du POC : Odoo 17 + PostgreSQL 15.
+# Lancement : depuis la racine du projet -> `docker compose -f docker/docker-compose.yml up`
+# Odoo accessible sur http://localhost:8069
+#
+# WSL2 : tous les chemins sont des volumes nommes (pas de bind-mount Windows C:\),
+#        et platform: linux/amd64 garantit des images compatibles.
+
+services:
+  postgres:
+    image: postgres:15
+    platform: linux/amd64
+    container_name: conserverie_postgres
+    environment:
+      # Pas de POSTGRES_DB : Odoo cree lui-meme sa base "conserverie" via son
+      # Database Manager (le role odoo, superuser, a le droit CREATEDB).
+      # Pre-creer la base ici provoquerait "database conserverie already exists".
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: odoo
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - odoo_network
+    # Port non publie sur l'hote : la base n'est accessible que depuis le reseau Docker.
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odoo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  odoo:
+    image: odoo:17
+    platform: linux/amd64
+    container_name: conserverie_odoo
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # L'image officielle odoo:17 attend HOST / USER / PASSWORD pour joindre Postgres.
+      HOST: postgres
+      USER: odoo
+      PASSWORD: odoo
+    ports:
+      - "8069:8069"
+    volumes:
+      - odoo_web_data:/var/lib/odoo
+    networks:
+      - odoo_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  odoo_web_data:
+
+networks:
+  odoo_network:
+    driver: bridge
