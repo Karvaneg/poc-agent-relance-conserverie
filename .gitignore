@@ -1,0 +1,3 @@
+# Infra IA — Claude Code
+# Le contexte est regenere a la demande via scripts/generate-ai-context.sh
+.claude/skills/project-context.md
