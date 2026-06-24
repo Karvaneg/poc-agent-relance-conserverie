@@ -11,9 +11,12 @@ services:
     platform: linux/amd64
     container_name: conserverie_postgres
     environment:
-      # Pas de POSTGRES_DB : Odoo cree lui-meme sa base "conserverie" via son
-      # Database Manager (le role odoo, superuser, a le droit CREATEDB).
-      # Pre-creer la base ici provoquerait "database conserverie already exists".
+      # POSTGRES_DB=postgres : base de maintenance par defaut. Odoo EXCLUT la base
+      # "postgres" de sa liste -> le Database Manager s'affiche et Odoo cree lui-meme
+      # la base "conserverie" (role odoo = superuser, a le droit CREATEDB).
+      # Sans cette variable, Postgres creerait une base "odoo" (= POSTGRES_USER)
+      # qu'Odoo auto-selectionnerait et tenterait de charger -> KeyError 'ir.http'.
+      POSTGRES_DB: postgres
       POSTGRES_USER: odoo
       POSTGRES_PASSWORD: odoo
     volumes:
@@ -24,7 +27,7 @@ services:
     expose:
       - "5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U odoo"]
+      test: ["CMD-SHELL", "pg_isready -U odoo -d postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
