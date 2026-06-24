@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime
 from types import SimpleNamespace
 
-from src.ai_generator import AiGenerator, build_relance_prompt
+from src.ai_generator import SYSTEM_PROMPT, AiGenerator, build_relance_prompt
 from src.config import Settings
 from src.models import Customer, Invoice
 from src.relance_policy import LEVELS
@@ -25,6 +25,12 @@ def _invoice() -> Invoice:
         payment_state="not_paid",
         currency="EUR",
     )
+
+
+def test_system_prompt_interdit_historique_relances() -> None:
+    # Le prompt systeme doit interdire d'inventer un historique de relances.
+    assert "présume aucun historique" in SYSTEM_PROMPT
+    assert "antérieur" in SYSTEM_PROMPT
 
 
 def test_build_relance_prompt_contient_les_faits() -> None:
