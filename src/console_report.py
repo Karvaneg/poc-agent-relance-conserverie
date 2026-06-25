@@ -14,9 +14,12 @@ from __future__ import annotations
 
 import datetime
 from collections import Counter
+from contextlib import contextmanager
+from typing import Callable, Iterator
 
 from rich import box
 from rich.console import Console
+from rich.live import Live
 from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
@@ -79,7 +82,7 @@ class RichRenderer:
         self._total += inv.amount_residual
         self._currency = inv.currency
 
-    def _panel(self, body: Text, *, style: str) -> None:
+    def _make_panel(self, body: Text, *, style: str) -> Panel:
         assert self._pending is not None
         index, total, inv, level, retard = self._pending
         title = f"[{index}/{total}] {escape(inv.name)} · {escape(inv.customer.name)}"
@@ -87,23 +90,44 @@ class RichRenderer:
             f"Niveau {level.level} — {escape(level.label)}  ·  "
             f"{_money(inv.amount_residual, inv.currency)} dus  ·  J+{retard}"
         )
-        self.console.print()
-        self.console.print(
-            Panel(
-                body,
-                title=title,
-                subtitle=subtitle,
-                title_align="left",
-                subtitle_align="left",
-                border_style=style,
-                padding=(1, 2),
-            )
+        return Panel(
+            body,
+            title=title,
+            subtitle=subtitle,
+            title_align="left",
+            subtitle_align="left",
+            border_style=style,
+            padding=(1, 2),
         )
+
+    def _panel(self, body: Text, *, style: str) -> None:
+        self.console.print()
+        self.console.print(self._make_panel(body, style=style))
 
     def message(self, text: str) -> None:
         assert self._pending is not None
         level = self._pending[3]
         self._panel(Text(text), style=_LEVEL_STYLE.get(level.level, _NEUTRAL))
+
+    @contextmanager
+    def message_stream(self) -> Iterator[Callable[[str], None]]:
+        """Affiche un panneau qui se remplit en direct au fil du streaming.
+
+        Cède un callback `feed(delta)` ; chaque fragment reçu agrandit le texte
+        du panneau, redessiné en place via `rich.live.Live`. Le dernier état
+        reste affiché à la sortie du contexte.
+        """
+        assert self._pending is not None
+        level = self._pending[3]
+        style = _LEVEL_STYLE.get(level.level, _NEUTRAL)
+        buf: list[str] = []
+        self.console.print()
+        with Live(self._make_panel(Text(""), style=style), console=self.console,
+                  refresh_per_second=16, transient=False) as live:
+            def feed(delta: str) -> None:
+                buf.append(delta)
+                live.update(self._make_panel(Text("".join(buf)), style=style))
+            yield feed
 
     def dry_run(self) -> None:
         self._panel(Text("(génération IA ignorée — mode --dry-run)", style="dim italic"), style=_NEUTRAL)

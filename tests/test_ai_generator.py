@@ -71,12 +71,40 @@ class _FakeMessages:
         )
 
 
+class _FakeStream:
+    """Context manager imitant `client.messages.stream(...)`."""
+
+    def __init__(self, chunks: list[str], recorder: dict, kwargs: dict) -> None:
+        self.text_stream = iter(chunks)
+        recorder.update(kwargs)
+
+    def __enter__(self) -> "_FakeStream":
+        return self
+
+    def __exit__(self, *exc) -> bool:
+        return False
+
+
+class _FakeMessagesStreaming(_FakeMessages):
+    """Stub `messages` exposant aussi `stream` (fragments prédéfinis)."""
+
+    def __init__(self, recorder: dict, chunks: list[str]) -> None:
+        super().__init__(recorder)
+        self._chunks = chunks
+
+    def stream(self, **kwargs):
+        return _FakeStream(self._chunks, self._recorder, kwargs)
+
+
 class _FakeClient:
     """Client Anthropic factice (aucun appel réseau)."""
 
-    def __init__(self) -> None:
+    def __init__(self, chunks: list[str] | None = None) -> None:
         self.calls: dict = {}
-        self.messages = _FakeMessages(self.calls)
+        if chunks is None:
+            self.messages = _FakeMessages(self.calls)
+        else:
+            self.messages = _FakeMessagesStreaming(self.calls, chunks)
 
 
 def _settings() -> Settings:
@@ -98,3 +126,21 @@ def test_generate_avec_client_mocke() -> None:
     assert fake.calls["model"] == "claude-sonnet-4-6"
     assert fake.calls["max_tokens"] == 1024
     assert any(m["role"] == "user" for m in fake.calls["messages"])
+
+
+def test_generate_stream_pousse_les_fragments_et_concatene() -> None:
+    chunks = ["Objet : Relance\n\n", "Bonjour,", " merci de régulariser.\n", "Le service comptabilité"]
+    fake = _FakeClient(chunks=chunks)
+    gen = AiGenerator(_settings(), client=fake)
+
+    received: list[str] = []
+    message = gen.generate_stream(_invoice(), LEVELS[1], reference_date=REF, on_delta=received.append)
+
+    # Chaque fragment a été transmis au fil de l'eau...
+    assert received == chunks
+    # ...et le message complet est concaténé puis nettoyé.
+    assert message.startswith("Objet : Relance")
+    assert message.endswith("Le service comptabilité")
+    # Les bons paramètres ont été passés à l'API de streaming.
+    assert fake.calls["model"] == "claude-sonnet-4-6"
+    assert fake.calls["max_tokens"] == 1024
