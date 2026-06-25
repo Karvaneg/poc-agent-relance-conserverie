@@ -60,6 +60,40 @@ def _format_invoice_header(index: int, total: int, inv: Invoice, level: RelanceL
     )
 
 
+class _PlainRenderer:
+    """Rendu texte brut (comportement historique) — écrit via une fonction `out`.
+
+    Reproduit à l'identique l'affichage d'origine ; sert de rendu par défaut et
+    de cible pour les tests. Le contrat est partagé avec `RichRenderer`.
+    """
+
+    def __init__(self, out: Callable[[str], None]) -> None:
+        self._out = out
+
+    def header(self, today: datetime.date, total_echues: int, to_count: int, ignored: int) -> None:
+        self._out(_format_header(today, total_echues, to_count))
+        if ignored:
+            self._out(f"({ignored} facture(s) échue(s) sous le seuil < J+7, ignorée(s).)\n")
+
+    def invoice(self, index: int, total: int, inv: Invoice, level: RelanceLevel, retard: int) -> None:
+        self._out(_format_invoice_header(index, total, inv, level, retard))
+
+    def message(self, text: str) -> None:
+        self._out(text)
+
+    def dry_run(self) -> None:
+        self._out("(génération IA ignorée — mode --dry-run)")
+
+    def error(self, inv: Invoice, exc: Exception) -> None:
+        self._out(f"[!] Génération impossible pour {inv.name} : {exc}")
+
+    def footer(self) -> None:
+        self._out(f"\n{_DSEP}")
+
+    def html_written(self, path: object) -> None:
+        self._out(f"\nRapport HTML écrit : {path}")
+
+
 def run(
     settings: Settings,
     *,
@@ -69,6 +103,7 @@ def run(
     generate: bool = True,
     out: Callable[[str], None] = print,
     html_path: Path | None = None,
+    renderer: object | None = None,
 ) -> int:
     """Exécute un cycle de relance et affiche le résultat.
 
@@ -78,13 +113,16 @@ def run(
         generator: Générateur IA (injecté pour les tests).
         reference_date: Date de référence pour le calcul des retards.
         generate: Si False, saute l'appel à Claude (mode dry-run).
-        out: Fonction d'affichage (injectée pour les tests).
+        out: Fonction d'affichage du rendu texte brut (par défaut / tests).
         html_path: Si fourni, écrit aussi un rapport HTML à ce chemin.
+        renderer: Rendu console à utiliser ; par défaut un `_PlainRenderer`
+            écrivant via `out`. `main` y injecte un `RichRenderer` en terminal.
 
     Returns:
         Le nombre de factures à relancer.
     """
     today = reference_date or datetime.date.today()
+    rnd = renderer if renderer is not None else _PlainRenderer(out)
 
     client = odoo_client or OdooClient(settings)
     client.connect()
@@ -95,36 +133,49 @@ def run(
     to_relance = [(inv, level) for inv, level in items if level is not None]
     ignored = len(items) - len(to_relance)
 
-    out(_format_header(today, len(items), len(to_relance)))
-    if ignored:
-        out(f"({ignored} facture(s) échue(s) sous le seuil < J+7, ignorée(s).)\n")
+    rnd.header(today, len(items), len(to_relance), ignored)
 
     gen = generator if generator is not None else (AiGenerator(settings) if generate and to_relance else None)
 
     results: list[RelanceResult] = []
     for index, (inv, level) in enumerate(to_relance, start=1):
         retard = (today - inv.invoice_date_due).days if inv.invoice_date_due else 0
-        out(_format_invoice_header(index, len(to_relance), inv, level, retard))
+        rnd.invoice(index, len(to_relance), inv, level, retard)
         if not generate:
-            out("(génération IA ignorée — mode --dry-run)")
+            rnd.dry_run()
             results.append(RelanceResult(inv, level, retard))
             continue
         try:
             message = gen.generate(inv, level, today)  # type: ignore[union-attr]
-            out(message)
+            rnd.message(message)
             results.append(RelanceResult(inv, level, retard, message=message))
         except Exception as exc:  # noqa: BLE001 - on isole l'echec d'une facture
             logger.error("Échec de génération pour %s", inv.name, exc_info=True)
-            out(f"[!] Génération impossible pour {inv.name} : {exc}")
+            rnd.error(inv, exc)
             results.append(RelanceResult(inv, level, retard, error=str(exc)))
 
-    out(f"\n{_DSEP}")
+    rnd.footer()
 
     if html_path is not None:
         written = write_report(results, today, html_path, total_echues=len(items), ignored=ignored)
-        out(f"\nRapport HTML écrit : {written}")
+        rnd.html_written(written)
 
     return len(to_relance)
+
+
+def _make_console_renderer(*, no_color: bool) -> object | None:
+    """Choisit le rendu console : `RichRenderer` en terminal, sinon texte brut.
+
+    Renvoie None (→ `_PlainRenderer`) si `--no-color`, si la sortie n'est pas un
+    terminal (redirection/pipe), ou si `rich` n'est pas disponible.
+    """
+    if no_color or not sys.stdout.isatty():
+        return None
+    try:
+        from src.console_report import RichRenderer
+    except ImportError:
+        return None
+    return RichRenderer()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -145,6 +196,11 @@ def main(argv: list[str] | None = None) -> int:
         metavar="CHEMIN",
         help=f"Écrire un rapport HTML partageable (défaut : {_DEFAULT_HTML_PATH}).",
     )
+    parser.add_argument(
+        "--no-color",
+        action="store_true",
+        help="Désactiver l'affichage enrichi (rich) et forcer le texte brut.",
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(
@@ -162,6 +218,7 @@ def main(argv: list[str] | None = None) -> int:
             reference_date=reference_date,
             generate=not args.dry_run,
             html_path=Path(args.html) if args.html else None,
+            renderer=_make_console_renderer(no_color=args.no_color),
         )
         return 0
     except (ConfigError, OdooError) as exc:

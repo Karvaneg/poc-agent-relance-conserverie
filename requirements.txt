@@ -1,2 +1,3 @@
 anthropic>=0.40          # SDK officiel Claude (Phase C)
 python-dotenv>=1.0       # chargement du .env
+rich>=13.0               # affichage console enrichi (tableaux, panneaux, couleurs)
