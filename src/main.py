@@ -11,6 +11,7 @@ Usage :
     python -m src.main --dry-run       # tout sauf l'appel Claude (classification seule)
     python -m src.main --debug         # affiche les tracebacks complets en cas d'erreur
     python -m src.main --reference-date 2026-06-25
+    python -m src.main --html          # ecrit aussi un rapport HTML (out/relances.html)
 """
 
 from __future__ import annotations
@@ -19,13 +20,19 @@ import argparse
 import datetime
 import logging
 import sys
-from typing import Callable
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Callable, Iterator
 
 from src.ai_generator import AiGenerator
 from src.config import ConfigError, Settings, load_settings
+from src.html_report import write_report
 from src.models import Invoice
 from src.odoo_client import OdooClient, OdooError
 from src.relance_policy import RelanceLevel, relance_for
+from src.results import RelanceResult
+
+_DEFAULT_HTML_PATH = "out/relances.html"
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +61,51 @@ def _format_invoice_header(index: int, total: int, inv: Invoice, level: RelanceL
     )
 
 
+class _PlainRenderer:
+    """Rendu texte brut (comportement historique) — écrit via une fonction `out`.
+
+    Reproduit à l'identique l'affichage d'origine ; sert de rendu par défaut et
+    de cible pour les tests. Le contrat est partagé avec `RichRenderer`.
+    """
+
+    def __init__(self, out: Callable[[str], None]) -> None:
+        self._out = out
+
+    def header(self, today: datetime.date, total_echues: int, to_count: int, ignored: int) -> None:
+        self._out(_format_header(today, total_echues, to_count))
+        if ignored:
+            self._out(f"({ignored} facture(s) échue(s) sous le seuil < J+7, ignorée(s).)\n")
+
+    def invoice(self, index: int, total: int, inv: Invoice, level: RelanceLevel, retard: int) -> None:
+        self._out(_format_invoice_header(index, total, inv, level, retard))
+
+    def message(self, text: str) -> None:
+        self._out(text)
+
+    @contextmanager
+    def message_stream(self) -> Iterator[Callable[[str], None]]:
+        """Accumule les fragments du streaming puis émet le message en un bloc.
+
+        Le rendu brut (sortie non interactive / redirigée) ne « tape » pas en
+        direct : il restitue le message complet une fois le flux terminé.
+        """
+        buf: list[str] = []
+        yield buf.append
+        self._out("".join(buf))
+
+    def dry_run(self) -> None:
+        self._out("(génération IA ignorée — mode --dry-run)")
+
+    def error(self, inv: Invoice, exc: Exception) -> None:
+        self._out(f"[!] Génération impossible pour {inv.name} : {exc}")
+
+    def footer(self) -> None:
+        self._out(f"\n{_DSEP}")
+
+    def html_written(self, path: object) -> None:
+        self._out(f"\nRapport HTML écrit : {path}")
+
+
 def run(
     settings: Settings,
     *,
@@ -62,6 +114,9 @@ def run(
     reference_date: datetime.date | None = None,
     generate: bool = True,
     out: Callable[[str], None] = print,
+    html_path: Path | None = None,
+    renderer: object | None = None,
+    stream: bool = False,
 ) -> int:
     """Exécute un cycle de relance et affiche le résultat.
 
@@ -71,12 +126,19 @@ def run(
         generator: Générateur IA (injecté pour les tests).
         reference_date: Date de référence pour le calcul des retards.
         generate: Si False, saute l'appel à Claude (mode dry-run).
-        out: Fonction d'affichage (injectée pour les tests).
+        out: Fonction d'affichage du rendu texte brut (par défaut / tests).
+        html_path: Si fourni, écrit aussi un rapport HTML à ce chemin.
+        renderer: Rendu console à utiliser ; par défaut un `_PlainRenderer`
+            écrivant via `out`. `main` y injecte un `RichRenderer` en terminal.
+        stream: Si True, génère les messages en streaming (rédaction en direct)
+            lorsque le générateur et le rendu le supportent.
 
     Returns:
         Le nombre de factures à relancer.
     """
     today = reference_date or datetime.date.today()
+    rnd = renderer if renderer is not None else _PlainRenderer(out)
+    use_stream = stream and hasattr(rnd, "message_stream")
 
     client = odoo_client or OdooClient(settings)
     client.connect()
@@ -87,27 +149,53 @@ def run(
     to_relance = [(inv, level) for inv, level in items if level is not None]
     ignored = len(items) - len(to_relance)
 
-    out(_format_header(today, len(items), len(to_relance)))
-    if ignored:
-        out(f"({ignored} facture(s) échue(s) sous le seuil < J+7, ignorée(s).)\n")
+    rnd.header(today, len(items), len(to_relance), ignored)
 
     gen = generator if generator is not None else (AiGenerator(settings) if generate and to_relance else None)
 
+    results: list[RelanceResult] = []
     for index, (inv, level) in enumerate(to_relance, start=1):
         retard = (today - inv.invoice_date_due).days if inv.invoice_date_due else 0
-        out(_format_invoice_header(index, len(to_relance), inv, level, retard))
+        rnd.invoice(index, len(to_relance), inv, level, retard)
         if not generate:
-            out("(génération IA ignorée — mode --dry-run)")
+            rnd.dry_run()
+            results.append(RelanceResult(inv, level, retard))
             continue
         try:
-            message = gen.generate(inv, level, today)  # type: ignore[union-attr]
-            out(message)
+            if use_stream and hasattr(gen, "generate_stream"):
+                with rnd.message_stream() as feed:  # type: ignore[union-attr]
+                    message = gen.generate_stream(inv, level, today, on_delta=feed)  # type: ignore[union-attr]
+            else:
+                message = gen.generate(inv, level, today)  # type: ignore[union-attr]
+                rnd.message(message)
+            results.append(RelanceResult(inv, level, retard, message=message))
         except Exception as exc:  # noqa: BLE001 - on isole l'echec d'une facture
             logger.error("Échec de génération pour %s", inv.name, exc_info=True)
-            out(f"[!] Génération impossible pour {inv.name} : {exc}")
+            rnd.error(inv, exc)
+            results.append(RelanceResult(inv, level, retard, error=str(exc)))
 
-    out(f"\n{_DSEP}")
+    rnd.footer()
+
+    if html_path is not None:
+        written = write_report(results, today, html_path, total_echues=len(items), ignored=ignored)
+        rnd.html_written(written)
+
     return len(to_relance)
+
+
+def _make_console_renderer(*, no_color: bool) -> object | None:
+    """Choisit le rendu console : `RichRenderer` en terminal, sinon texte brut.
+
+    Renvoie None (→ `_PlainRenderer`) si `--no-color`, si la sortie n'est pas un
+    terminal (redirection/pipe), ou si `rich` n'est pas disponible.
+    """
+    if no_color or not sys.stdout.isatty():
+        return None
+    try:
+        from src.console_report import RichRenderer
+    except ImportError:
+        return None
+    return RichRenderer()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -120,6 +208,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true", help="Ne pas appeler Claude (classification seule).")
     parser.add_argument("--debug", action="store_true", help="Afficher les tracebacks complets.")
     parser.add_argument("--reference-date", help="Date de référence YYYY-MM-DD (defaut : aujourd'hui).")
+    parser.add_argument(
+        "--html",
+        nargs="?",
+        const=_DEFAULT_HTML_PATH,
+        default=None,
+        metavar="CHEMIN",
+        help=f"Écrire un rapport HTML partageable (défaut : {_DEFAULT_HTML_PATH}).",
+    )
+    parser.add_argument(
+        "--no-color",
+        action="store_true",
+        help="Désactiver l'affichage enrichi (rich) et forcer le texte brut.",
+    )
+    parser.add_argument(
+        "--no-stream",
+        action="store_true",
+        help="Désactiver la rédaction en direct (streaming) ; attendre le message complet.",
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(
@@ -132,7 +238,14 @@ def main(argv: list[str] | None = None) -> int:
         reference_date = (
             datetime.date.fromisoformat(args.reference_date) if args.reference_date else None
         )
-        run(settings, reference_date=reference_date, generate=not args.dry_run)
+        run(
+            settings,
+            reference_date=reference_date,
+            generate=not args.dry_run,
+            html_path=Path(args.html) if args.html else None,
+            renderer=_make_console_renderer(no_color=args.no_color),
+            stream=not args.no_stream,
+        )
         return 0
     except (ConfigError, OdooError) as exc:
         # Erreurs attendues : message clair, pas de traceback (sauf --debug).
