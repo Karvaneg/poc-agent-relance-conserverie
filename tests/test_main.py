@@ -88,3 +88,19 @@ def test_run_dry_run_ne_genere_pas() -> None:
     assert n == 3
     assert gen.calls == 0              # aucun appel IA en dry-run
     assert "génération IA ignorée" in "\n".join(lines)
+
+
+def test_run_ecrit_le_rapport_html(tmp_path) -> None:
+    odoo = _FakeOdoo(_records())
+    gen = _FakeGenerator()
+    target = tmp_path / "relances.html"
+    lines: list[str] = []
+
+    run(_settings(), odoo_client=odoo, generator=gen, reference_date=REF,
+        out=lines.append, html_path=target)
+
+    assert target.exists()
+    html = target.read_text(encoding="utf-8")
+    assert "MESSAGE niveau 3 pour FAC/2026/00006" in html
+    assert "Restaurant La Marée" in html
+    assert "Rapport HTML écrit" in "\n".join(lines)
