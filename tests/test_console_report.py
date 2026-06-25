@@ -58,6 +58,21 @@ def test_rich_render_contient_les_elements_cles() -> None:
     assert "out/relances.html" in out
 
 
+def test_rich_message_stream_affiche_le_texte_accumule() -> None:
+    buf = io.StringIO()
+    console = Console(file=buf, force_terminal=True, width=100, color_system=None)
+    r = RichRenderer(console)
+    r.invoice(1, 1, _invoice("FAC/2026/00004", "Épicerie Le Panier", 1750.0, "2026-06-17"), LEVELS[1], 8)
+
+    with r.message_stream() as feed:
+        for chunk in ["Bonjour, ", "rappel ", "courtois."]:
+            feed(chunk)
+
+    out = buf.getvalue()
+    assert "Bonjour, rappel courtois." in out
+    assert "FAC/2026/00004" in out  # le panneau (titre) est bien rendu
+
+
 def test_rich_dry_run_affiche_la_mention() -> None:
     buf = io.StringIO()
     console = Console(file=buf, force_terminal=True, width=100, color_system=None)

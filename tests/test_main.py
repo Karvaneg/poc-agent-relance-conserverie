@@ -45,10 +45,18 @@ class _FakeOdoo:
 class _FakeGenerator:
     def __init__(self) -> None:
         self.calls = 0
+        self.stream_calls = 0
 
     def generate(self, invoice, level, reference_date=None) -> str:
         self.calls += 1
         return f"MESSAGE niveau {level.level} pour {invoice.name}"
+
+    def generate_stream(self, invoice, level, reference_date=None, *, on_delta) -> str:
+        self.stream_calls += 1
+        text = f"MESSAGE niveau {level.level} pour {invoice.name}"
+        for ch in text.split(" "):  # pousse quelques fragments
+            on_delta(ch + " ")
+        return text
 
 
 def _records() -> list[dict]:
@@ -88,6 +96,20 @@ def test_run_dry_run_ne_genere_pas() -> None:
     assert n == 3
     assert gen.calls == 0              # aucun appel IA en dry-run
     assert "génération IA ignorée" in "\n".join(lines)
+
+
+def test_run_stream_utilise_generate_stream() -> None:
+    gen = _FakeGenerator()
+    lines: list[str] = []
+
+    n = run(_settings(), odoo_client=_FakeOdoo(_records()), generator=gen,
+            reference_date=REF, out=lines.append, stream=True)
+
+    assert n == 3
+    assert gen.stream_calls == 3      # voie streaming empruntée
+    assert gen.calls == 0             # generate() classique non appelé
+    text = "\n".join(lines)
+    assert "MESSAGE niveau 3 pour FAC/2026/00006" in text
 
 
 def test_run_ecrit_le_rapport_html(tmp_path) -> None:

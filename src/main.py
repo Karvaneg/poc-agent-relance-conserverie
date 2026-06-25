@@ -20,8 +20,9 @@ import argparse
 import datetime
 import logging
 import sys
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Iterator
 
 from src.ai_generator import AiGenerator
 from src.config import ConfigError, Settings, load_settings
@@ -81,6 +82,17 @@ class _PlainRenderer:
     def message(self, text: str) -> None:
         self._out(text)
 
+    @contextmanager
+    def message_stream(self) -> Iterator[Callable[[str], None]]:
+        """Accumule les fragments du streaming puis émet le message en un bloc.
+
+        Le rendu brut (sortie non interactive / redirigée) ne « tape » pas en
+        direct : il restitue le message complet une fois le flux terminé.
+        """
+        buf: list[str] = []
+        yield buf.append
+        self._out("".join(buf))
+
     def dry_run(self) -> None:
         self._out("(génération IA ignorée — mode --dry-run)")
 
@@ -104,6 +116,7 @@ def run(
     out: Callable[[str], None] = print,
     html_path: Path | None = None,
     renderer: object | None = None,
+    stream: bool = False,
 ) -> int:
     """Exécute un cycle de relance et affiche le résultat.
 
@@ -117,12 +130,15 @@ def run(
         html_path: Si fourni, écrit aussi un rapport HTML à ce chemin.
         renderer: Rendu console à utiliser ; par défaut un `_PlainRenderer`
             écrivant via `out`. `main` y injecte un `RichRenderer` en terminal.
+        stream: Si True, génère les messages en streaming (rédaction en direct)
+            lorsque le générateur et le rendu le supportent.
 
     Returns:
         Le nombre de factures à relancer.
     """
     today = reference_date or datetime.date.today()
     rnd = renderer if renderer is not None else _PlainRenderer(out)
+    use_stream = stream and hasattr(rnd, "message_stream")
 
     client = odoo_client or OdooClient(settings)
     client.connect()
@@ -146,8 +162,12 @@ def run(
             results.append(RelanceResult(inv, level, retard))
             continue
         try:
-            message = gen.generate(inv, level, today)  # type: ignore[union-attr]
-            rnd.message(message)
+            if use_stream and hasattr(gen, "generate_stream"):
+                with rnd.message_stream() as feed:  # type: ignore[union-attr]
+                    message = gen.generate_stream(inv, level, today, on_delta=feed)  # type: ignore[union-attr]
+            else:
+                message = gen.generate(inv, level, today)  # type: ignore[union-attr]
+                rnd.message(message)
             results.append(RelanceResult(inv, level, retard, message=message))
         except Exception as exc:  # noqa: BLE001 - on isole l'echec d'une facture
             logger.error("Échec de génération pour %s", inv.name, exc_info=True)
@@ -201,6 +221,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Désactiver l'affichage enrichi (rich) et forcer le texte brut.",
     )
+    parser.add_argument(
+        "--no-stream",
+        action="store_true",
+        help="Désactiver la rédaction en direct (streaming) ; attendre le message complet.",
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(
@@ -219,6 +244,7 @@ def main(argv: list[str] | None = None) -> int:
             generate=not args.dry_run,
             html_path=Path(args.html) if args.html else None,
             renderer=_make_console_renderer(no_color=args.no_color),
+            stream=not args.no_stream,
         )
         return 0
     except (ConfigError, OdooError) as exc:

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import datetime
 import logging
-from typing import Any
+from typing import Any, Callable
 
 import anthropic
 
@@ -119,3 +119,40 @@ class AiGenerator:
             messages=[{"role": "user", "content": prompt}],
         )
         return _extract_text(response)
+
+    def generate_stream(
+        self,
+        invoice: Invoice,
+        level: RelanceLevel,
+        reference_date: datetime.date | None = None,
+        *,
+        on_delta: Callable[[str], None],
+    ) -> str:
+        """Génère le message en streaming, en poussant chaque fragment à `on_delta`.
+
+        Le texte arrive token par token (effet « rédaction en direct »). Chaque
+        fragment est transmis à `on_delta` au fil de l'eau ; le message complet
+        est aussi renvoyé une fois le flux terminé.
+
+        Args:
+            invoice: La facture à relancer.
+            level: Le niveau de relance applicable.
+            reference_date: Date servant de « aujourd'hui ».
+            on_delta: Callback appelé pour chaque fragment de texte reçu.
+
+        Returns:
+            Le texte complet du message de relance généré.
+        """
+        prompt = build_relance_prompt(invoice, level, reference_date)
+        logger.info("Génération (streaming) relance niveau %s pour %s…", level.level, invoice.name)
+        parts: list[str] = []
+        with self._client.messages.stream(
+            model=self.model,
+            max_tokens=MAX_TOKENS,
+            system=SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": prompt}],
+        ) as stream:
+            for text in stream.text_stream:
+                parts.append(text)
+                on_delta(text)
+        return "".join(parts).strip()
