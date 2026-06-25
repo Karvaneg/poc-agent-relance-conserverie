@@ -11,6 +11,7 @@ Usage :
     python -m src.main --dry-run       # tout sauf l'appel Claude (classification seule)
     python -m src.main --debug         # affiche les tracebacks complets en cas d'erreur
     python -m src.main --reference-date 2026-06-25
+    python -m src.main --html          # ecrit aussi un rapport HTML (out/relances.html)
 """
 
 from __future__ import annotations
@@ -19,13 +20,18 @@ import argparse
 import datetime
 import logging
 import sys
+from pathlib import Path
 from typing import Callable
 
 from src.ai_generator import AiGenerator
 from src.config import ConfigError, Settings, load_settings
+from src.html_report import write_report
 from src.models import Invoice
 from src.odoo_client import OdooClient, OdooError
 from src.relance_policy import RelanceLevel, relance_for
+from src.results import RelanceResult
+
+_DEFAULT_HTML_PATH = "out/relances.html"
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +68,7 @@ def run(
     reference_date: datetime.date | None = None,
     generate: bool = True,
     out: Callable[[str], None] = print,
+    html_path: Path | None = None,
 ) -> int:
     """Exécute un cycle de relance et affiche le résultat.
 
@@ -72,6 +79,7 @@ def run(
         reference_date: Date de référence pour le calcul des retards.
         generate: Si False, saute l'appel à Claude (mode dry-run).
         out: Fonction d'affichage (injectée pour les tests).
+        html_path: Si fourni, écrit aussi un rapport HTML à ce chemin.
 
     Returns:
         Le nombre de factures à relancer.
@@ -93,20 +101,29 @@ def run(
 
     gen = generator if generator is not None else (AiGenerator(settings) if generate and to_relance else None)
 
+    results: list[RelanceResult] = []
     for index, (inv, level) in enumerate(to_relance, start=1):
         retard = (today - inv.invoice_date_due).days if inv.invoice_date_due else 0
         out(_format_invoice_header(index, len(to_relance), inv, level, retard))
         if not generate:
             out("(génération IA ignorée — mode --dry-run)")
+            results.append(RelanceResult(inv, level, retard))
             continue
         try:
             message = gen.generate(inv, level, today)  # type: ignore[union-attr]
             out(message)
+            results.append(RelanceResult(inv, level, retard, message=message))
         except Exception as exc:  # noqa: BLE001 - on isole l'echec d'une facture
             logger.error("Échec de génération pour %s", inv.name, exc_info=True)
             out(f"[!] Génération impossible pour {inv.name} : {exc}")
+            results.append(RelanceResult(inv, level, retard, error=str(exc)))
 
     out(f"\n{_DSEP}")
+
+    if html_path is not None:
+        written = write_report(results, today, html_path, total_echues=len(items), ignored=ignored)
+        out(f"\nRapport HTML écrit : {written}")
+
     return len(to_relance)
 
 
@@ -120,6 +137,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true", help="Ne pas appeler Claude (classification seule).")
     parser.add_argument("--debug", action="store_true", help="Afficher les tracebacks complets.")
     parser.add_argument("--reference-date", help="Date de référence YYYY-MM-DD (defaut : aujourd'hui).")
+    parser.add_argument(
+        "--html",
+        nargs="?",
+        const=_DEFAULT_HTML_PATH,
+        default=None,
+        metavar="CHEMIN",
+        help=f"Écrire un rapport HTML partageable (défaut : {_DEFAULT_HTML_PATH}).",
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(
@@ -132,7 +157,12 @@ def main(argv: list[str] | None = None) -> int:
         reference_date = (
             datetime.date.fromisoformat(args.reference_date) if args.reference_date else None
         )
-        run(settings, reference_date=reference_date, generate=not args.dry_run)
+        run(
+            settings,
+            reference_date=reference_date,
+            generate=not args.dry_run,
+            html_path=Path(args.html) if args.html else None,
+        )
         return 0
     except (ConfigError, OdooError) as exc:
         # Erreurs attendues : message clair, pas de traceback (sauf --debug).

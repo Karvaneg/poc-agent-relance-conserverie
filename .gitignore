@@ -22,3 +22,6 @@ data/
 *.db
 *.sqlite
 *.sqlite3
+
+# Rapports HTML generes (livrables, non versionnes)
+out/
