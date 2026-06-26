@@ -26,6 +26,11 @@ data/
 # Rapports HTML generes (livrables, non versionnes)
 out/
 
-# Contexte de mission (offre d'emploi, e-mail du cas pratique) — local uniquement,
-# contient des donnees personnelles : ne jamais pousser sur le depot public.
+# Contexte de mission (offre d'emploi, e-mail du cas pratique) et dossier de
+# candidature (reponse, brouillons, PDF) — local uniquement, contient des
+# donnees personnelles : ne jamais pousser sur le depot public.
 docs/contexte-mission/
+docs/candidature/
+
+# Script d'export des conversations Claude Code — local uniquement
+scripts/export-conversation.py
