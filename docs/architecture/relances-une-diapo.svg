@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto-start-reverse" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#3a4a5a"/>
+    </marker>
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="135%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#000" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="1600" height="900" fill="#fafbfc"/>
+
+  <!-- ===== HEADER ===== -->
+  <rect x="0" y="0" width="1600" height="112" fill="#1f3a52"/>
+  <text x="56" y="54" fill="#ffffff" font-size="31" font-weight="700">Agent de relances clients — du POC à la cible</text>
+  <text x="56" y="90" fill="#aecbe4" font-size="18">L'agent propose · le comptable dispose</text>
+
+  <!-- ===== PIPELINE ARROWS ===== -->
+  <g stroke="#3a4a5a" stroke-width="3" fill="none">
+    <line x1="380" y1="375" x2="438" y2="375" marker-end="url(#arrow)"/>
+    <line x1="760" y1="375" x2="818" y2="375" marker-end="url(#arrow)"/>
+    <line x1="1140" y1="375" x2="1198" y2="375" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- ===== STEP 1 · ODOO ===== -->
+  <g filter="url(#shadow)"><rect x="60" y="300" width="320" height="150" rx="13" fill="#dbe7f3" stroke="#2f6db0" stroke-width="2.5"/></g>
+  <circle cx="88" cy="328" r="15" fill="#2f6db0"/><text x="88" y="334" text-anchor="middle" font-size="16" font-weight="700" fill="#fff">1</text>
+  <text x="220" y="352" text-anchor="middle" font-size="20" font-weight="700" fill="#1f3a52">ODOO 17</text>
+  <text x="220" y="382" text-anchor="middle" font-size="14.5" fill="#33485c">Factures impayées échues</text>
+  <text x="220" y="404" text-anchor="middle" font-size="14.5" fill="#33485c">XML-RPC · lecture seule</text>
+
+  <!-- ===== STEP 2 · CLASSIFICATION ===== -->
+  <g filter="url(#shadow)"><rect x="440" y="300" width="320" height="150" rx="13" fill="#d8f0e0" stroke="#1f9d57" stroke-width="2.5"/></g>
+  <circle cx="468" cy="328" r="15" fill="#1f9d57"/><text x="468" y="334" text-anchor="middle" font-size="16" font-weight="700" fill="#fff">2</text>
+  <text x="600" y="352" text-anchor="middle" font-size="20" font-weight="700" fill="#14613a">CLASSIFICATION</text>
+  <text x="600" y="382" text-anchor="middle" font-size="14.5" fill="#1d6e44">Retard → niveau de relance</text>
+  <text x="600" y="404" text-anchor="middle" font-size="14.5" fill="#1d6e44">logique pure · 20 tests</text>
+
+  <!-- ===== STEP 3 · CLAUDE ===== -->
+  <g filter="url(#shadow)"><rect x="820" y="300" width="320" height="150" rx="13" fill="#ece0f6" stroke="#7a3fb0" stroke-width="2.5"/></g>
+  <circle cx="848" cy="328" r="15" fill="#7a3fb0"/><text x="848" y="334" text-anchor="middle" font-size="16" font-weight="700" fill="#fff">3</text>
+  <text x="980" y="352" text-anchor="middle" font-size="20" font-weight="700" fill="#542a7e">GÉNÉRATION CLAUDE</text>
+  <text x="980" y="382" text-anchor="middle" font-size="14.5" fill="#5e3389">Message adapté au</text>
+  <text x="980" y="404" text-anchor="middle" font-size="14.5" fill="#5e3389">niveau &amp; au client</text>
+
+  <!-- ===== STEP 4 · RELANCE + CONTRÔLE ===== -->
+  <g filter="url(#shadow)"><rect x="1200" y="300" width="320" height="150" rx="13" fill="#fbdcec" stroke="#c0398a" stroke-width="2.5"/></g>
+  <circle cx="1228" cy="328" r="15" fill="#c0398a"/><text x="1228" y="334" text-anchor="middle" font-size="16" font-weight="700" fill="#fff">4</text>
+  <text x="1360" y="350" text-anchor="middle" font-size="20" font-weight="700" fill="#90276a">RELANCE PROPOSÉE</text>
+  <circle cx="1360" cy="378" r="11" fill="none" stroke="#a82d77" stroke-width="2.3"/>
+  <path d="M1342 404 a18 15 0 0 1 36 0" fill="none" stroke="#a82d77" stroke-width="2.3"/>
+  <text x="1360" y="430" text-anchor="middle" font-size="14.5" fill="#90276a">le comptable relit &amp; valide</text>
+
+  <!-- ===== 3 NIVEAUX (sortie de la classification) ===== -->
+  <line x1="600" y1="450" x2="600" y2="498" stroke="#1f9d57" stroke-width="2.5" stroke-dasharray="5 4"/>
+  <g filter="url(#shadow)"><rect x="440" y="500" width="100" height="84" rx="9" fill="#fff6cc" stroke="#c9a92a" stroke-width="2"/></g>
+  <text x="490" y="530" text-anchor="middle" font-size="15" font-weight="700" fill="#7a6310">N1 · J+7</text>
+  <text x="490" y="556" text-anchor="middle" font-size="13" fill="#7a6310">courtois</text>
+  <g filter="url(#shadow)"><rect x="550" y="500" width="100" height="84" rx="9" fill="#fde0c0" stroke="#d98c1f" stroke-width="2"/></g>
+  <text x="600" y="530" text-anchor="middle" font-size="15" font-weight="700" fill="#8a5610">N2 · J+15</text>
+  <text x="600" y="556" text-anchor="middle" font-size="13" fill="#8a5610">ferme</text>
+  <g filter="url(#shadow)"><rect x="660" y="500" width="100" height="84" rx="9" fill="#f7d6d6" stroke="#c0504d" stroke-width="2"/></g>
+  <text x="710" y="530" text-anchor="middle" font-size="15" font-weight="700" fill="#8a2f2c">N3 · J+30</text>
+  <text x="710" y="556" text-anchor="middle" font-size="12" fill="#8a2f2c">mise en demeure</text>
+
+  <!-- ===== PHASES ===== -->
+  <g stroke="#3a4a5a" stroke-width="3" fill="none"><line x1="762" y1="700" x2="816" y2="700" marker-end="url(#arrow)"/></g>
+
+  <!-- Phase 1 -->
+  <g filter="url(#shadow)"><rect x="60" y="640" width="700" height="120" rx="13" fill="#e9f6ee" stroke="#1f9d57" stroke-width="2.5"/></g>
+  <text x="84" y="678" font-size="13" font-weight="700" fill="#1f9d57" letter-spacing="1">AUJOURD'HUI</text>
+  <text x="84" y="706" font-size="20" font-weight="700" fill="#14613a">PHASE 1 — POC livré</text>
+  <text x="84" y="734" font-size="14.5" fill="#33485c">Génère &amp; affiche en console · Odoo 17 Docker · 20 tests · mode dry-run sans crédits</text>
+
+  <!-- Phase 2 -->
+  <g filter="url(#shadow)"><rect x="820" y="640" width="700" height="120" rx="13" fill="#eaf1f9" stroke="#2f6db0" stroke-width="2.5"/></g>
+  <text x="844" y="678" font-size="13" font-weight="700" fill="#2f6db0" letter-spacing="1">DEMAIN</text>
+  <text x="844" y="706" font-size="20" font-weight="700" fill="#1f3a52">PHASE 2 — cible</text>
+  <text x="844" y="734" font-size="14.5" fill="#33485c">Écrit le brouillon dans Odoo · activité de validation · envoi après contrôle comptable</text>
+
+  <!-- footer line -->
+  <text x="56" y="824" font-size="14.5" fill="#5a6b7a" font-style="italic">Preuve concrète (Q2 du cas pratique) · structure modulaire prête pour la Phase 2 sans refonte</text>
+</svg>
