@@ -30,7 +30,7 @@
 
 - `README.md` (setup, exécution, dépannage, crédits API — y compris le flag **`--html`** documenté dans la section *Exécution*, #22), `COLLABORATION.md`, `CLAUDE.md` + workspace context **Python**.
 - `scripts/capture_demo.py` : capture de l'agent en **SVG/HTML** pour la démo (sortie locale, gitignorée).
-- Dépôt **GitHub public**, historique en **22 PR**, tags **`v0.1-demo`**, **`v0.1.1-demo`** et **`v0.2-demo`** sur `main` (fix prompt #8 promu via #10 ; démo visuelle A/B/C promue via #15 ; doc `--html` promue via #22).
+- Dépôt **GitHub public**, historique en **23 PR**, tags **`v0.1-demo`**, **`v0.1.1-demo`**, **`v0.2-demo`** et **`v0.2.1-demo`** sur `main` (fix prompt #8 promu via #10 ; démo visuelle A/B/C promue via #15 ; doc `--html` promue via #22 ; actualisation STATUS.md via #23, taguée `v0.2.1-demo`).
 
 ### Démo
 
