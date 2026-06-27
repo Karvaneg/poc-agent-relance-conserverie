@@ -8,6 +8,24 @@ POC d'un agent IA (Claude via l'API Anthropic) qui automatise les **relances de 
 
 ---
 
+## Architecture
+
+Principe directeur : **l'agent propose, le comptable dispose**. Toute sortie est un
+brouillon relu et validé par un humain — contrôle humain systématique, surtout au démarrage.
+
+Vue d'ensemble — deux flux complémentaires sur le SI existant (Odoo / OpenProd) :
+
+![Architecture — automatisation finance, deux flux](docs/architecture/architecture.png)
+
+Zoom sur le flux couvert par ce POC — les relances clients, du livré à la cible :
+
+![Relances clients — du POC à la cible](docs/architecture/relances-une-diapo.png)
+
+> Sources vectorielles : [`architecture.svg`](docs/architecture/architecture.svg) ·
+> [`relances-une-diapo.svg`](docs/architecture/relances-une-diapo.svg)
+
+---
+
 ## 1. Prérequis
 
 | Outil         | Version   | Notes                                                               |
