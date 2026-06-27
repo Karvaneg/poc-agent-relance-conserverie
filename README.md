@@ -201,11 +201,16 @@ python -m src.main
 # Classification seule, sans appel à Claude (utile tant que le compte API n'a pas de crédits)
 python -m src.main --dry-run
 
+# Écrit aussi un rapport HTML partageable (défaut : out/relances.html)
+python -m src.main --html
+
 # Tracebacks complets en cas d'erreur
 python -m src.main --debug
 ```
 
 L'agent lit `.env`, se connecte à Odoo en **XML-RPC (lecture seule)**, récupère les factures impayées échues, les classe par niveau (1/2/3 selon J+7 / J+15 / J+30) et affiche les messages de relance générés par Claude. **Aucun envoi réel, aucune écriture dans Odoo.**
+
+> **📄 Rapport HTML.** `--html` régénère `out/relances.html` à partir du run réel (vraies factures Odoo + messages Claude du run) — le fichier est un **instantané autonome et partageable** (CSS/JS inline), réécrit à chaque exécution. Combiné à `--dry-run`, le rapport est produit sans les messages Claude (classification seule). `out/` est gitignoré (livrable non versionné).
 
 > **💳 Crédits API requis.** La génération réelle appelle l'API Anthropic, facturée à l'usage — **distincte de l'abonnement Claude Pro** (claude.ai). Créditer le compte sur `console.anthropic.com` → **Plans & Billing** (quelques dollars suffisent ; une relance ≈ quelques centimes). Sans crédits, utiliser `--dry-run`.
 
