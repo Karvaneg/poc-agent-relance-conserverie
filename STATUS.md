@@ -1,7 +1,7 @@
 # État d'avancement — POC agent de relance
 
 > Récapitulatif de ce qui est livré et de ce qui reste à faire.
-> Dernière mise à jour : 2026-06-26.
+> Dernière mise à jour : 2026-06-27.
 
 ---
 
@@ -28,9 +28,9 @@
 
 ### Documentation & Git
 
-- `README.md` (setup, exécution, dépannage, crédits API), `COLLABORATION.md`, `CLAUDE.md` + workspace context **Python**.
+- `README.md` (setup, exécution, dépannage, crédits API — y compris le flag **`--html`** documenté dans la section *Exécution*, #22), `COLLABORATION.md`, `CLAUDE.md` + workspace context **Python**.
 - `scripts/capture_demo.py` : capture de l'agent en **SVG/HTML** pour la démo (sortie locale, gitignorée).
-- Dépôt **GitHub public**, historique en **18 PR**, tags **`v0.1-demo`**, **`v0.1.1-demo`** et **`v0.2-demo`** sur `main` (fix prompt #8 promu via #10 ; démo visuelle A/B/C promue via #15).
+- Dépôt **GitHub public**, historique en **22 PR**, tags **`v0.1-demo`**, **`v0.1.1-demo`** et **`v0.2-demo`** sur `main` (fix prompt #8 promu via #10 ; démo visuelle A/B/C promue via #15 ; doc `--html` promue via #22).
 
 ### Démo
 
@@ -44,6 +44,7 @@
 
 - [x] ~~Promouvoir le fix prompt (PR #8) de `dev` → `main`~~ — fait (#10, tag `v0.1.1-demo`).
 - [x] ~~Promouvoir la **démo visuelle (A/B/C)** de `dev` → `main`~~ — fait (#15, tag `v0.2-demo`).
+- [x] ~~Documenter le flag **`--html`** dans le README et promouvoir `dev` → `main`~~ — fait (#22).
 - [ ] Si la démo se fait sur **un autre poste que celui de dev** : y recréer le fichier `.env` avec une **clé Anthropic valide** (`.env` est gitignoré, il ne suit pas le dépôt) — sinon seul le mode `--dry-run` est possible. Déjà en place sur la machine de dev.
 
 ### Phase 2 (hors périmètre actuel)
