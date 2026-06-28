@@ -31,6 +31,7 @@ out/
 # donnees personnelles : ne jamais pousser sur le depot public.
 docs/contexte-mission/
 docs/candidature/
+docs/entretien/
 
 # Script d'export des conversations Claude Code — local uniquement
 scripts/export-conversation.py
