@@ -34,7 +34,7 @@
   <circle cx="468" cy="328" r="15" fill="#1f9d57"/><text x="468" y="334" text-anchor="middle" font-size="16" font-weight="700" fill="#fff">2</text>
   <text x="600" y="352" text-anchor="middle" font-size="20" font-weight="700" fill="#14613a">CLASSIFICATION</text>
   <text x="600" y="382" text-anchor="middle" font-size="14.5" fill="#1d6e44">Retard → niveau de relance</text>
-  <text x="600" y="404" text-anchor="middle" font-size="14.5" fill="#1d6e44">logique pure · 20 tests</text>
+  <text x="600" y="404" text-anchor="middle" font-size="14.5" fill="#1d6e44">logique pure · 31 tests</text>
 
   <!-- ===== STEP 3 · CLAUDE ===== -->
   <g filter="url(#shadow)"><rect x="820" y="300" width="320" height="150" rx="13" fill="#ece0f6" stroke="#7a3fb0" stroke-width="2.5"/></g>
@@ -70,7 +70,7 @@
   <g filter="url(#shadow)"><rect x="60" y="640" width="700" height="120" rx="13" fill="#e9f6ee" stroke="#1f9d57" stroke-width="2.5"/></g>
   <text x="84" y="678" font-size="13" font-weight="700" fill="#1f9d57" letter-spacing="1">AUJOURD'HUI</text>
   <text x="84" y="706" font-size="20" font-weight="700" fill="#14613a">PHASE 1 — POC livré</text>
-  <text x="84" y="734" font-size="14.5" fill="#33485c">Génère &amp; affiche en console · Odoo 17 Docker · 20 tests · mode dry-run sans crédits</text>
+  <text x="84" y="734" font-size="14.5" fill="#33485c">Génère &amp; affiche en console · Odoo 17 Docker · 31 tests · mode dry-run sans crédits</text>
 
   <!-- Phase 2 -->
   <g filter="url(#shadow)"><rect x="820" y="640" width="700" height="120" rx="13" fill="#eaf1f9" stroke="#2f6db0" stroke-width="2.5"/></g>
